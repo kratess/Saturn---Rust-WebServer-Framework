@@ -107,11 +107,11 @@ impl Request {
     }
 
     Ok(Request {
-      method: method,
-      path: path,
-      http_version: http_version,
-      headers: headers,
-      params: params,
+      method,
+      path,
+      http_version,
+      headers,
+      params,
       body: b,
     })
   }

@@ -19,7 +19,7 @@ use std::{
 };
 use thiserror::Error;
 
-pub type Handler = fn(res: &mut Response);
+pub type Handler = fn(req: &mut Request, res: &mut Response);
 
 pub struct WebServer {
   address: String,
@@ -27,9 +27,9 @@ pub struct WebServer {
 }
 
 impl WebServer {
-  pub fn new(address: String) -> Self {
+  pub fn new(address: &str) -> Self {
     WebServer {
-      address,
+      address: address.to_owned(),
       routes: HashMap::new(),
     }
   }
@@ -39,12 +39,12 @@ impl WebServer {
     route_entry.insert(method, handler);
   }
 
-  pub fn get(&mut self, path: HttpPath, handler: Handler) {
-    self.add_route(HttpMethod::Get, path, handler);
+  pub fn get(&mut self, path: &str, handler: Handler) {
+    self.add_route(HttpMethod::Get, HttpPath::from_str(path).unwrap(), handler);
   }
 
-  pub fn post(&mut self, path: HttpPath, handler: Handler) {
-    self.add_route(HttpMethod::Post, path, handler);
+  pub fn post(&mut self, path: &str, handler: Handler) {
+    self.add_route(HttpMethod::Post, HttpPath::from_str(path).unwrap(), handler);
   }
 
   pub fn start(self) {
@@ -71,9 +71,7 @@ impl WebServer {
   }
 
   fn handle_connection(&self, mut stream: TcpStream) -> Result<(), RequestError> {
-    let req: Request = Request::new(&stream)?;
-
-    println!("{:?}", req);
+    let mut req: Request = Request::new(&stream)?;
 
     // Check if path has any handlers
     let path_handlers = match self.routes.get(&req.path) {
@@ -92,7 +90,7 @@ impl WebServer {
         Some(_) => {
           let mut res = Response::new();
           if let Some(handler) = handler {
-            handler(&mut res);
+            handler(&mut req, &mut res);
           }
           self.generic(&mut stream, res.build_head());
         }
@@ -116,14 +114,14 @@ impl WebServer {
           .status(204)
           .set_header(String::from("Allow"), allowed_methods.join(", "));
         if let Some(handler) = handler {
-          handler(&mut res);
+          handler(&mut req, &mut res);
         }
         self.generic(&mut stream, res.build_head());
       }
       _ => {
         let mut res = Response::new();
         if let Some(handler) = handler {
-          handler(&mut res);
+          handler(&mut req, &mut res);
         }
         self.generic(&mut stream, res.build_response());
       }
